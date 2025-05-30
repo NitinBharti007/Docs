@@ -251,3 +251,337 @@ const handleSubmit = async (e) => {
    - Reusable components
    - Consistent error handling
    - Clear file structure
+
+
+# React + Vite
+
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+
+Currently, two official plugins are available:
+
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+
+## Expanding the ESLint configuration
+
+If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+
+# Supabase Row Level Security (RLS) Policies
+
+This document outlines all Row Level Security (RLS) policies implemented in the Supabase database.
+
+## Overview
+
+The application implements role-based access control with two main user types:
+- **Admin Users**: Have full CRUD (Create, Read, Update, Delete) access to all data
+- **Client Users**: Have read-only access to data within their assigned clinics
+
+## Table Policies
+
+### 1. Clinics Table
+
+```sql
+-- Enable RLS
+ALTER TABLE clinics ENABLE ROW LEVEL SECURITY;
+
+-- Policy for SELECT (Read)
+CREATE POLICY "Clinics: Admins or linked client can read"
+ON clinics
+FOR SELECT
+TO public
+USING (
+  -- Allow admins to read all clinics
+  EXISTS (
+    SELECT 1 FROM users
+    WHERE users.id = auth.uid()
+    AND users.role = 'admin'
+  )
+  OR
+  -- Allow clients to read their linked clinics
+  EXISTS (
+    SELECT 1 FROM clinic_users
+    WHERE clinic_users.clinic_id = clinics.id
+    AND clinic_users.user_id = auth.uid()
+  )
+);
+
+-- Policy for INSERT (Create)
+CREATE POLICY "Clinics: Only admins can create"
+ON clinics
+FOR INSERT
+TO public
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM users
+    WHERE users.id = auth.uid()
+    AND users.role = 'admin'
+  )
+);
+
+-- Policy for UPDATE
+CREATE POLICY "Clinics: Only admins can update"
+ON clinics
+FOR UPDATE
+TO public
+USING (
+  EXISTS (
+    SELECT 1 FROM users
+    WHERE users.id = auth.uid()
+    AND users.role = 'admin'
+  )
+);
+
+-- Policy for DELETE
+CREATE POLICY "Clinics: Only admins can delete"
+ON clinics
+FOR DELETE
+TO public
+USING (
+  EXISTS (
+    SELECT 1 FROM users
+    WHERE users.id = auth.uid()
+    AND users.role = 'admin'
+  )
+);
+```
+
+### 2. Patients Table
+
+```sql
+-- Enable RLS
+ALTER TABLE patients ENABLE ROW LEVEL SECURITY;
+
+-- Policy for SELECT (Read)
+CREATE POLICY "Patients: Admins or client clinic access"
+ON patients
+FOR SELECT
+TO public
+USING (
+  -- Allow admins to read all patients
+  EXISTS (
+    SELECT 1 FROM users
+    WHERE users.id = auth.uid()
+    AND users.role = 'admin'
+  )
+  OR
+  -- Allow clients to read patients from their clinics
+  EXISTS (
+    SELECT 1 FROM clinic_users
+    WHERE clinic_users.clinic_id = patients.clinic_id
+    AND clinic_users.user_id = auth.uid()
+  )
+);
+
+-- Policy for INSERT (Create)
+CREATE POLICY "Patients: Only admins can create"
+ON patients
+FOR INSERT
+TO public
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM users
+    WHERE users.id = auth.uid()
+    AND users.role = 'admin'
+  )
+);
+
+-- Policy for UPDATE
+CREATE POLICY "Patients: Only admins can update"
+ON patients
+FOR UPDATE
+TO public
+USING (
+  EXISTS (
+    SELECT 1 FROM users
+    WHERE users.id = auth.uid()
+    AND users.role = 'admin'
+  )
+);
+
+-- Policy for DELETE
+CREATE POLICY "Patients: Only admins can delete"
+ON patients
+FOR DELETE
+TO public
+USING (
+  EXISTS (
+    SELECT 1 FROM users
+    WHERE users.id = auth.uid()
+    AND users.role = 'admin'
+  )
+);
+```
+
+### 3. Reports Table
+
+```sql
+-- Enable RLS
+ALTER TABLE reports ENABLE ROW LEVEL SECURITY;
+
+-- Policy for SELECT (Read)
+CREATE POLICY "Reports: Admins or client for their clinic"
+ON reports
+FOR SELECT
+TO public
+USING (
+  -- Allow admins to read all reports
+  EXISTS (
+    SELECT 1 FROM users
+    WHERE users.id = auth.uid()
+    AND users.role = 'admin'
+  )
+  OR
+  -- Allow clients to read reports from their clinics
+  EXISTS (
+    SELECT 1 FROM clinic_users
+    WHERE clinic_users.clinic_id = reports.clinic_id
+    AND clinic_users.user_id = auth.uid()
+  )
+);
+
+-- Policy for INSERT (Create)
+CREATE POLICY "Reports: Only admins can create"
+ON reports
+FOR INSERT
+TO public
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM users
+    WHERE users.id = auth.uid()
+    AND users.role = 'admin'
+  )
+);
+
+-- Policy for UPDATE
+CREATE POLICY "Reports: Only admins can update"
+ON reports
+FOR UPDATE
+TO public
+USING (
+  EXISTS (
+    SELECT 1 FROM users
+    WHERE users.id = auth.uid()
+    AND users.role = 'admin'
+  )
+);
+
+-- Policy for DELETE
+CREATE POLICY "Reports: Only admins can delete"
+ON reports
+FOR DELETE
+TO public
+USING (
+  EXISTS (
+    SELECT 1 FROM users
+    WHERE users.id = auth.uid()
+    AND users.role = 'admin'
+  )
+);
+```
+
+### 4. Users Table
+
+```sql
+-- Enable RLS
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+
+-- Policy for SELECT (Read)
+CREATE POLICY "Users: Admins and Self can read"
+ON users
+FOR SELECT
+TO public
+USING (
+  -- Allow admins to read all users
+  EXISTS (
+    SELECT 1 FROM users
+    WHERE users.id = auth.uid()
+    AND users.role = 'admin'
+  )
+  OR
+  -- Allow users to read their own data
+  id = auth.uid()
+);
+
+-- Policy for INSERT (Create)
+CREATE POLICY "Users: Only admins can create"
+ON users
+FOR INSERT
+TO public
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM users
+    WHERE users.id = auth.uid()
+    AND users.role = 'admin'
+  )
+);
+
+-- Policy for UPDATE
+CREATE POLICY "Users: Only admins can update"
+ON users
+FOR UPDATE
+TO public
+USING (
+  EXISTS (
+    SELECT 1 FROM users
+    WHERE users.id = auth.uid()
+    AND users.role = 'admin'
+  )
+);
+
+-- Policy for DELETE
+CREATE POLICY "Users: Only admins can delete"
+ON users
+FOR DELETE
+TO public
+USING (
+  EXISTS (
+    SELECT 1 FROM users
+    WHERE users.id = auth.uid()
+    AND users.role = 'admin'
+  )
+);
+```
+
+## Access Control Summary
+
+### Admin Users
+- Can perform all CRUD operations on all tables
+- Have full access to manage clinics, patients, reports, and users
+- Can create, read, update, and delete any record
+
+### Client Users
+- Can only READ data
+- Can only view clinics they are linked to
+- Can only view patients from their assigned clinics
+- Can only view reports from their assigned clinics
+- Can only view their own user data
+- Cannot create, update, or delete any records
+
+## Implementation Notes
+
+1. All tables have RLS enabled
+2. Each table has separate policies for SELECT, INSERT, UPDATE, and DELETE operations
+3. Policies use EXISTS clauses to check user roles and relationships
+4. The `clinic_users` table is used to manage clinic-client relationships
+5. User authentication is handled through Supabase Auth
+6. The `auth.uid()` function is used to identify the current user
+
+## Security Considerations
+
+1. All policies are enforced at the database level
+2. Policies are applied before any data is returned to the client
+3. Even if the application layer is compromised, the database remains secure
+4. Regular audits of access patterns are recommended
+5. Monitor for any unauthorized access attempts
+
+## Maintenance
+
+To modify these policies:
+
+1. Go to Supabase Dashboard > Authentication > Policies
+2. Select the table you want to modify
+3. Click on the policy you want to edit
+4. Make your changes
+5. Click "Save Policy"
+
+Remember to test any policy changes thoroughly in a development environment before applying them to production.
